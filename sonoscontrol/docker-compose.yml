@@ -1,6 +1,6 @@
 services:
   sonoscontrol:
-    image: ghcr.io/xon94010/sonoscontrol:latest
+    image: xonbul/sonoscontrol:latest
     container_name: sonoscontrol
     network_mode: host
     environment:
