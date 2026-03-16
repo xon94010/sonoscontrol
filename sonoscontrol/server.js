@@ -6,7 +6,7 @@ const path = require('path');
 const os = require('os');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const SEED_SPEAKER = process.env.SONOS_IP || '192.168.1.64';
 const CURL = os.platform() === 'darwin' ? '/usr/bin/curl' : 'curl';
 
