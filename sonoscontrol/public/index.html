@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>SonosControl</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', sans-serif;
+      background: #000;
+      color: #fff;
+      min-height: 100vh;
+      padding: 20px;
+      padding-top: calc(20px + env(safe-area-inset-top, 0px));
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .refresh-btn {
+      background: rgba(255,255,255,0.12);
+      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(20px);
+      border: none;
+      color: #0a84ff;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .refresh-btn:active { transform: scale(0.95); opacity: 0.7; }
+
+    .status {
+      text-align: center;
+      color: rgba(255,255,255,0.5);
+      padding: 60px 0;
+      font-size: 17px;
+    }
+
+    .status.error { color: #ff453a; }
+
+    .spinner {
+      display: inline-block;
+      width: 22px;
+      height: 22px;
+      border: 2.5px solid rgba(255,255,255,0.15);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* --- Group card (frosted glass) --- */
+    .group {
+      background: rgba(255,255,255,0.08);
+      -webkit-backdrop-filter: blur(40px) saturate(180%);
+      backdrop-filter: blur(40px) saturate(180%);
+      border-radius: 20px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(255,255,255,0.08);
+      overflow: hidden;
+    }
+
+    .group-header {
+      display: flex;
+      align-items: center;
+      padding: 16px 18px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .group-header:active { background: rgba(255,255,255,0.05); }
+
+    .group-header.selected { background: rgba(10,132,255,0.15); }
+
+    .group-header .speaker-check { margin-right: 14px; }
+
+    .group-header .group-name { flex: 1; }
+
+    .group-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.45);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .group-count {
+      font-size: 13px;
+      color: rgba(255,255,255,0.3);
+      font-weight: 500;
+    }
+
+    /* --- Speaker row --- */
+    .speaker {
+      display: flex;
+      align-items: center;
+      padding: 14px 18px;
+      cursor: pointer;
+      transition: background 0.15s;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .speaker:active { background: rgba(255,255,255,0.05); }
+
+    .speaker.selected { background: rgba(10,132,255,0.12); }
+
+    .speaker-check {
+      width: 26px;
+      height: 26px;
+      border: 2.5px solid rgba(255,255,255,0.25);
+      border-radius: 50%;
+      margin-right: 14px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .selected > .speaker-check,
+    .group-header.selected .speaker-check {
+      border-color: #0a84ff;
+      background: #0a84ff;
+    }
+
+    .selected > .speaker-check::after,
+    .group-header.selected .speaker-check::after {
+      content: '';
+      width: 10px;
+      height: 6px;
+      border-left: 2.5px solid #fff;
+      border-bottom: 2.5px solid #fff;
+      transform: rotate(-45deg) translateY(-1px);
+    }
+
+    .speaker-name {
+      font-size: 17px;
+      font-weight: 500;
+      flex: 1;
+      letter-spacing: -0.2px;
+    }
+
+    .speaker-coordinator {
+      font-size: 11px;
+      font-weight: 600;
+      color: #0a84ff;
+      background: rgba(10,132,255,0.15);
+      padding: 3px 8px;
+      border-radius: 6px;
+      margin-left: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    /* --- Volume sliders --- */
+    .volume-row {
+      display: flex;
+      align-items: center;
+      padding: 4px 18px 14px 58px;
+      gap: 12px;
+    }
+
+    .volume-row.group-volume {
+      padding: 10px 18px 14px 58px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .volume-icon {
+      font-size: 12px;
+      color: rgba(255,255,255,0.35);
+    }
+
+    .volume-label {
+      font-size: 14px;
+      color: rgba(255,255,255,0.5);
+      min-width: 30px;
+      text-align: right;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      flex: 1;
+      height: 6px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 3px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 28px;
+      height: 28px;
+      background: #fff;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    /* --- Bottom action bar --- */
+    .actions {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 16px 20px;
+      padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+      background: linear-gradient(transparent, rgba(0,0,0,0.9) 30%);
+      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(20px);
+      display: flex;
+      gap: 12px;
+    }
+
+    .actions button {
+      flex: 1;
+      padding: 16px;
+      border: none;
+      border-radius: 14px;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: -0.2px;
+    }
+
+    .actions button:disabled {
+      opacity: 0.25;
+      cursor: default;
+    }
+
+    .actions button:active:not(:disabled) {
+      transform: scale(0.97);
+      opacity: 0.8;
+    }
+
+    .btn-group {
+      background: #0a84ff;
+      color: #fff;
+    }
+
+    .btn-ungroup {
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+    }
+
+    .selection-count {
+      text-align: center;
+      color: rgba(255,255,255,0.35);
+      font-size: 13px;
+      padding: 10px 0;
+      font-weight: 500;
+    }
+
+    .pad-bottom {
+      height: 110px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sonos</h1>
+    <button class="refresh-btn" onclick="loadSpeakers()">Refresh</button>
+  </header>
+  <div id="app"></div>
+  <div class="pad-bottom"></div>
+
+  <div class="actions">
+    <button class="btn-ungroup" id="btn-ungroup" disabled onclick="ungroupSelected()">Ungroup</button>
+    <button class="btn-group" id="btn-group" disabled onclick="groupSelected()">Group</button>
+  </div>
+
+  <script>
+    let speakers = [];
+    let groups = [];
+    let selected = new Set();
+    let speakerVolumes = {};
+    let volumeDebounce = {};
+
+    async function loadSpeakers() {
+      const app = document.getElementById('app');
+      app.innerHTML = '<div class="status"><span class="spinner"></span>Discovering speakers...</div>';
+      selected.clear();
+      updateButtons();
+
+      try {
+        const res = await fetch('/api/speakers');
+        const data = await res.json();
+        speakers = data.speakers || [];
+        groups = data.groups || [];
+
+        speakerVolumes = {};
+        for (const s of speakers) {
+          if (s.host && s.volume !== null) speakerVolumes[s.host] = s.volume;
+        }
+
+        if (speakers.length === 0) {
+          app.innerHTML = '<div class="status">No speakers found.<br>Make sure you\'re on the same network.</div>';
+          return;
+        }
+
+        render();
+      } catch (err) {
+        app.innerHTML = `<div class="status error">Error: ${err.message}</div>`;
+      }
+    }
+
+    function render() {
+      const app = document.getElementById('app');
+      let html = '';
+
+      for (const group of groups) {
+        const gi = groups.indexOf(group);
+        const groupLabel = `Group ${gi + 1}`;
+        html += `<div class="group">`;
+
+        const allInGroup = group.members.every((m) => selected.has(m.host));
+        html += `<div class="group-header ${allInGroup ? 'selected' : ''}" onclick="toggleGroup(${gi})">`;
+        html += `<div class="speaker-check"></div>`;
+        html += `<span class="group-name">${groupLabel}</span>`;
+        html += `<span class="group-count">${group.members.length} speaker${group.members.length > 1 ? 's' : ''}</span>`;
+        html += `</div>`;
+
+        if (group.members.length > 1) {
+          const vols = group.members.map((m) => speakerVolumes[m.host] ?? 0);
+          const avgVol = Math.round(vols.reduce((a, b) => a + b, 0) / vols.length);
+          html += `<div class="volume-row group-volume">`;
+          html += `<input type="range" min="0" max="100" value="${avgVol}" id="group-slider-${gi}" oninput="setGroupVolume(${gi}, this.value)" onchange="setGroupVolume(${gi}, this.value)">`;
+          html += `<span class="volume-label" id="group-label-${gi}">${avgVol}</span>`;
+          html += `</div>`;
+        }
+
+        for (const member of group.members) {
+          const isSelected = selected.has(member.host);
+          const isCoord = member.isCoordinator;
+          const vol = speakerVolumes[member.host] ?? 0;
+
+          html += `<div class="speaker ${isSelected ? 'selected' : ''}" onclick="toggleSpeaker('${member.host}')">`;
+          html += `<div class="speaker-check"></div>`;
+          html += `<span class="speaker-name">${member.name}</span>`;
+          if (isCoord && group.members.length > 1) {
+            html += `<span class="speaker-coordinator">Lead</span>`;
+          }
+          html += `</div>`;
+          html += `<div class="volume-row">`;
+          html += `<input type="range" min="0" max="100" value="${vol}" id="vol-slider-${member.host}" oninput="setSpeakerVolume('${member.host}', this.value)" onchange="setSpeakerVolume('${member.host}', this.value)">`;
+          html += `<span class="volume-label" id="vol-label-${member.host}">${vol}</span>`;
+          html += `</div>`;
+        }
+
+        html += `</div>`;
+      }
+
+      const count = selected.size;
+      if (count > 0) {
+        html += `<div class="selection-count">${count} speaker${count > 1 ? 's' : ''} selected</div>`;
+      }
+
+      app.innerHTML = html;
+    }
+
+    function toggleSpeaker(host) {
+      if (selected.has(host)) selected.delete(host);
+      else selected.add(host);
+      render();
+      updateButtons();
+    }
+
+    function toggleGroup(index) {
+      const group = groups[index];
+      const allSelected = group.members.every((m) => selected.has(m.host));
+      for (const m of group.members) {
+        if (allSelected) selected.delete(m.host);
+        else selected.add(m.host);
+      }
+      render();
+      updateButtons();
+    }
+
+    function setSpeakerVolume(host, volume) {
+      volume = parseInt(volume, 10);
+      speakerVolumes[host] = volume;
+
+      const label = document.getElementById(`vol-label-${host}`);
+      if (label) label.textContent = volume;
+
+      for (let i = 0; i < groups.length; i++) {
+        const g = groups[i];
+        if (g.members.length > 1 && g.members.some((m) => m.host === host)) {
+          const vols = g.members.map((m) => speakerVolumes[m.host] ?? 0);
+          const avg = Math.round(vols.reduce((a, b) => a + b, 0) / vols.length);
+          const gs = document.getElementById(`group-slider-${i}`);
+          const gl = document.getElementById(`group-label-${i}`);
+          if (gs) gs.value = avg;
+          if (gl) gl.textContent = avg;
+        }
+      }
+
+      clearTimeout(volumeDebounce[host]);
+      volumeDebounce[host] = setTimeout(() => {
+        fetch('/api/volume', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ host, volume }),
+        });
+      }, 150);
+    }
+
+    function setGroupVolume(groupIndex, volume) {
+      volume = parseInt(volume, 10);
+      const group = groups[groupIndex];
+      const vols = group.members.map((m) => speakerVolumes[m.host] ?? 0);
+      const oldAvg = Math.round(vols.reduce((a, b) => a + b, 0) / vols.length);
+      const delta = volume - oldAvg;
+
+      for (const m of group.members) {
+        const newVol = Math.max(0, Math.min(100, (speakerVolumes[m.host] ?? 0) + delta));
+        speakerVolumes[m.host] = newVol;
+
+        const s = document.getElementById(`vol-slider-${m.host}`);
+        const l = document.getElementById(`vol-label-${m.host}`);
+        if (s) s.value = newVol;
+        if (l) l.textContent = newVol;
+
+        clearTimeout(volumeDebounce[m.host]);
+        volumeDebounce[m.host] = setTimeout(((h, v) => () => {
+          fetch('/api/volume', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ host: h, volume: v }),
+          });
+        })(m.host, newVol), 150);
+      }
+
+      const gl = document.getElementById(`group-label-${groupIndex}`);
+      if (gl) gl.textContent = volume;
+    }
+
+    function updateButtons() {
+      document.getElementById('btn-group').disabled = selected.size < 2;
+      document.getElementById('btn-ungroup').disabled = selected.size === 0;
+    }
+
+    async function groupSelected() {
+      const hosts = Array.from(selected);
+      if (hosts.length < 2) return;
+
+      const coordinatorHost = hosts[0];
+      const memberHosts = hosts;
+
+      setLoading(true);
+      try {
+        const res = await fetch('/api/group', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ coordinatorHost, memberHosts }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setTimeout(loadSpeakers, 1500);
+      } catch (err) {
+        alert('Grouping failed: ' + err.message);
+        setLoading(false);
+      }
+    }
+
+    async function ungroupSelected() {
+      const hosts = Array.from(selected);
+      if (hosts.length === 0) return;
+
+      setLoading(true);
+      try {
+        for (const host of hosts) {
+          const res = await fetch('/api/ungroup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ host }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+        }
+        setTimeout(loadSpeakers, 1500);
+      } catch (err) {
+        alert('Ungrouping failed: ' + err.message);
+        setLoading(false);
+      }
+    }
+
+    function setLoading(loading) {
+      document.getElementById('btn-group').disabled = loading;
+      document.getElementById('btn-ungroup').disabled = loading;
+      if (loading) {
+        document.getElementById('app').innerHTML = '<div class="status"><span class="spinner"></span>Updating groups...</div>';
+      }
+    }
+
+    loadSpeakers();
+  </script>
+</body>
+</html>
