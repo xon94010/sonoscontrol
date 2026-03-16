@@ -1,0 +1,8 @@
+services:
+  sonoscontrol:
+    image: ghcr.io/xon94010/sonoscontrol:latest
+    container_name: sonoscontrol
+    network_mode: host
+    environment:
+      - SONOS_IP=192.168.1.64
+    restart: unless-stopped

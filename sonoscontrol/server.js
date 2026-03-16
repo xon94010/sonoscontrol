@@ -3,9 +3,12 @@ const { execSync } = require('child_process');
 const { parseString } = require('xml2js');
 const path = require('path');
 
+const os = require('os');
+
 const app = express();
 const PORT = 3000;
 const SEED_SPEAKER = process.env.SONOS_IP || '192.168.1.64';
+const CURL = os.platform() === 'darwin' ? '/usr/bin/curl' : 'curl';
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -14,7 +17,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 function sonosFetch(ip, urlPath) {
   try {
     return execSync(
-      `/usr/bin/curl -s --connect-timeout 3 "http://${ip}:1400${urlPath}"`,
+      `${CURL} -s --connect-timeout 3 "http://${ip}:1400${urlPath}"`,
       { encoding: 'utf-8', timeout: 5000 }
     );
   } catch {
@@ -25,7 +28,7 @@ function sonosFetch(ip, urlPath) {
 function sonosPost(ip, urlPath, soapAction, body) {
   try {
     return execSync(
-      `/usr/bin/curl -s --connect-timeout 3 -X POST "http://${ip}:1400${urlPath}" ` +
+      `${CURL} -s --connect-timeout 3 -X POST "http://${ip}:1400${urlPath}" ` +
       `-H 'Content-Type: text/xml; charset="utf-8"' ` +
       `-H 'SOAPAction: "${soapAction}"' ` +
       `-d '${body}'`,
