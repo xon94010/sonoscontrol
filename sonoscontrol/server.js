@@ -9,8 +9,9 @@ const PORT = process.env.PORT || 3000;
 const SEED_SPEAKER = process.env.SONOS_IP || '192.168.1.64';
 const CURL = os.platform() === 'darwin' ? '/usr/bin/curl' : 'curl';
 
-// House zone — speakers that should group together (Patio excluded)
+// House zone — speakers that should group together
 const HOUSE_SPEAKERS = ['Kitchen', 'One', 'Family Room'];
+const HOUSE_COORDINATOR = 'One'; // AirPlay speaker — always leads the group
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -262,26 +263,16 @@ app.post('/api/group-house', async (req, res) => {
       return res.status(400).json({ error: 'Not enough house speakers found' });
     }
 
-    // Check all house speakers for AirPlay in parallel
-    const infos = await Promise.all(houseMembers.map((m) => getTransportInfo(m.host)));
-    let coordinator = houseMembers[0];
-    for (let i = 0; i < houseMembers.length; i++) {
-      if (infos[i] && infos[i].isAirPlay) {
-        console.log(`AirPlay detected on ${houseMembers[i].name} — promoting to coordinator`);
-        coordinator = houseMembers[i];
-        break;
-      }
-      if (infos[i] && infos[i].currentURI && !infos[i].currentURI.startsWith('x-rincon:')) {
-        coordinator = houseMembers[i];
-      }
-    }
+    // One is always coordinator (AirPlay speaker)
+    const coordinator = houseMembers.find((m) => m.name === HOUSE_COORDINATOR) || houseMembers[0];
 
-    // Join all non-coordinator members in parallel
-    await Promise.all(
-      houseMembers
-        .filter((m) => m.host !== coordinator.host)
-        .map((m) => joinGroup(m.host, coordinator.uuid))
-    );
+    // First, ungroup any house speakers that are in existing groups
+    // so One can cleanly become coordinator
+    const nonCoordMembers = houseMembers.filter((m) => m.host !== coordinator.host);
+    await Promise.all(nonCoordMembers.map((m) => leaveGroup(m.host).catch(() => {})));
+
+    // Now join all to One
+    await Promise.all(nonCoordMembers.map((m) => joinGroup(m.host, coordinator.uuid)));
 
     await play(coordinator.host);
     res.json({ success: true, coordinator: coordinator.name });

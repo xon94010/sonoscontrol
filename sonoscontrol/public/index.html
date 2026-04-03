@@ -129,16 +129,6 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* --- Zone section --- */
-    .zone-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: rgba(255,255,255,0.45);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      padding: 8px 4px 8px;
-    }
-
     /* --- Group card (frosted glass) --- */
     .group {
       background: rgba(255,255,255,0.08);
@@ -311,29 +301,13 @@
         statusEl.innerHTML = '<span class="pill ungrouped">House Ungrouped</span>';
       }
 
-      // Split groups into house and other
-      const houseGroups = [];
-      const otherGroups = [];
-      for (const group of groups) {
-        const hasHouseSpeaker = group.members.some((m) => HOUSE_SPEAKERS.includes(m.name));
-        if (hasHouseSpeaker) houseGroups.push(group);
-        else otherGroups.push(group);
-      }
+      // Only show house speakers
+      const houseGroups = groups.filter((group) =>
+        group.members.some((m) => HOUSE_SPEAKERS.includes(m.name))
+      );
 
-      // Render house zone
-      if (houseGroups.length > 0) {
-        html += '<div class="zone-label">House</div>';
-        for (const group of houseGroups) {
-          html += renderGroup(group);
-        }
-      }
-
-      // Render other zones
-      if (otherGroups.length > 0) {
-        html += '<div class="zone-label">Other</div>';
-        for (const group of otherGroups) {
-          html += renderGroup(group);
-        }
+      for (const group of houseGroups) {
+        html += renderGroup(group);
       }
 
       app.innerHTML = html;
@@ -358,11 +332,9 @@
         const isCoord = member.isCoordinator;
         const vol = speakerVolumes[member.host] ?? 0;
 
+        const leadSuffix = (isCoord && group.members.length > 1) ? ' <span class="speaker-coordinator">Lead</span>' : '';
         html += '<div class="speaker">';
-        html += `<span class="speaker-name">${member.name}</span>`;
-        if (isCoord && group.members.length > 1) {
-          html += '<span class="speaker-coordinator">Lead</span>';
-        }
+        html += `<span class="speaker-name">${member.name}${leadSuffix}</span>`;
         html += '</div>';
         html += '<div class="volume-row">';
         html += `<input type="range" min="0" max="100" value="${vol}" id="vol-slider-${member.host}" oninput="setSpeakerVolume('${member.host}', this.value)" onchange="setSpeakerVolume('${member.host}', this.value)">`;
